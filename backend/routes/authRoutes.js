@@ -7,6 +7,7 @@ import {
   requestLoginOtp,
   verifyLoginOtp,
   resendOtp,
+  deleteUser,
 } from "../controllers/authController.js";
 
 const router = express.Router();
@@ -25,5 +26,8 @@ router.post("/login-otp/verify", verifyLoginOtp);
 
 // Resend registration OTP
 router.post("/resend-otp", resendOtp);
+
+//Temp delete api
+router.delete("/delete", deleteUser)
 
 export default router;

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 import { asyncHandler } from "../middlewares/asyncHandler.js";
+import { errorHandler } from "../middlewares/errorHandler.js";
 import { generateOtp, otpExpiryAfter, isOtpExpired } from "../utils/otp.js";
 import { sendOtp } from "../utils/twilio.js";
 import { signToken } from "../utils/jwt.js";
@@ -123,17 +124,21 @@ export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password)
-    return res
-      .status(400)
-      .json({ message: "email and password are required" });
+    return res.status(400).json({ message: "email and password are required" });
 
   const user = await User.findOne({ email });
   if (!user) return res.status(404).json({ message: "User not found" });
 
-  const ok = await bcrypt.compare(password, user.password || "");
+  if (!user.password)
+    return res.status(400).json({ message: "Please Complete signup first" });
+
+  const ok = await bcrypt.compare(password, user.password);
   if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
-  const token = signToken({ id: user._id, role: user.role });
+  const token = signToken({
+    id: user._id,
+    role: user.role,
+  });
 
   return res.status(200).json({
     message: "Login successful",
@@ -154,7 +159,8 @@ export const login = asyncHandler(async (req, res) => {
 export const requestLoginOtp = asyncHandler(async (req, res) => {
   const { mobile } = req.body;
 
-  if (!mobile) return res.status(400).json({ message: "mobile is required" });
+  if (!mobile)
+    return res.status(400).json({ message: "mobile number is required" });
 
   const user = await User.findOne({ mobile });
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -189,7 +195,10 @@ export const verifyLoginOtp = asyncHandler(async (req, res) => {
   user.otpExpiry = undefined;
   await user.save();
 
-  const token = signToken({ id: user._id, role: user.role });
+  const token = signToken({
+    id: user._id,
+    role: user.role,
+  });
 
   return res.status(200).json({
     message: "Login successful",
@@ -205,16 +214,36 @@ export const verifyLoginOtp = asyncHandler(async (req, res) => {
 });
 
 /**
- * RESEND OTP (for registration)
+ * RESEND OTP (for signup or login)
  */
 export const resendOtp = asyncHandler(async (req, res) => {
-  const { mobile } = req.body;
-  if (!mobile) return res.status(400).json({ message: "mobile is required" });
+  const { mobile, context = "signup" } = req.body; // context can be 'signup' or 'login'
+  if (!mobile)
+    return res.status(400).json({ message: "mobile number is required" });
 
   const user = await User.findOne({ mobile });
   if (!user) return res.status(404).json({ message: "User not found" });
-  if (user.isVerified)
-    return res.status(400).json({ message: "Already verified" });
+
+  // SIGNUP CONTEXT
+  if (context === "signup") {
+    if (user.isVerified) {
+      return res
+        .status(400)
+        .json({ message: "User already verified. Please login." });
+    }
+  }
+
+  // LOGIN CONTEXT
+  if (context === "login") {
+    if (!user.isVerified) {
+      return res.status(400).json({ message: "User not registered yet." });
+    }
+  }
+
+  // OTP cooldown
+  if (user.otpExpiry && user.otpExpiry > Date.now() - 30 * 1000) {
+    return res.status(400).json({ message: "Please wait for 30 seconds" });
+  }
 
   const otp = generateOtp();
   user.otp = otp;
@@ -223,5 +252,24 @@ export const resendOtp = asyncHandler(async (req, res) => {
 
   await sendOtp(mobile, otp);
 
-  return res.status(200).json({ message: "OTP resent" });
+  return res.status(200).json({
+    message: `OTP resent for ${context}`,
+    userId: user._id,
+  });
+});
+
+// temporary delete api
+export const deleteUser = asyncHandler(async (req, res) => {
+  const { mobile } = req.body;
+
+  if (!mobile) {
+    return res.status(400).json({ message: "Mobile number is required" });
+  }
+
+  const user = await User.findOne({ mobile });
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  await user.deleteOne();
+  return res.status(200).json({ message: "User deleted successfully" });
 });

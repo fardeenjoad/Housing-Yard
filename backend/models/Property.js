@@ -1,6 +1,15 @@
 import mongoose from "mongoose";
 
-const STATUS = ["draft", "pending", "active", "hold", "sold", "rejected", "archived"];
+const STATUS = [
+  "draft",
+  "pending",
+  "approved",
+  "active",
+  "hold",
+  "sold",
+  "rejected",
+  "archived",
+];
 
 const propertySchema = new mongoose.Schema(
   {
@@ -15,7 +24,7 @@ const propertySchema = new mongoose.Schema(
       pincode: String,
       coordinates: {
         type: { type: String, enum: ["Point"], default: "Point" },
-        coordinates: { type: [Number], default: [0, 0] }, 
+        coordinates: { type: [Number], default: [0, 0] },
       },
     },
     bedrooms: Number,
@@ -29,7 +38,12 @@ const propertySchema = new mongoose.Schema(
       default: "pending",
       index: true,
     },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     approvedAt: Date,
     archivedAt: Date,

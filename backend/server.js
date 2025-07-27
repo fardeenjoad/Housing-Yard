@@ -5,11 +5,18 @@ import rateLimit from "express-rate-limit";
 import "dotenv/config.js";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import adminRoutes from "./routes/admin&propertyRoutes.js";
 
 const app = express();
 connectDB();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://10.99.194.74:3000",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(helmet());
 
@@ -20,6 +27,7 @@ app.use(
 );
 
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
