@@ -8,7 +8,10 @@ import {
   verifyLoginOtp,
   resendOtp,
   deleteUser,
+  forgotPassword,
+  changePassword,
 } from "../controllers/authController.js";
+import { protect } from "../middlewares/auth.js";
 
 const router = express.Router();
 
@@ -24,10 +27,14 @@ router.post("/login", login);
 router.post("/login-otp/request", requestLoginOtp);
 router.post("/login-otp/verify", verifyLoginOtp);
 
-// Resend registration OTP
+// Resend OTP
 router.post("/resend-otp", resendOtp);
 
-//Temp delete api
-router.delete("/delete", deleteUser)
+// Forgot / Reset Password
+router.post("/forgot-password", forgotPassword);
+router.patch("/change-password", protect, changePassword);
+
+//Temp delete user
+router.delete("/delete", deleteUser);
 
 export default router;

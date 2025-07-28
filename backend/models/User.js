@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const userSchema = new mongoose.Schema(
   {
@@ -24,8 +26,20 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Password compare method
 userSchema.methods.comparePassword = async function (plain) {
   return bcrypt.compare(plain, this.password || " ");
+};
+
+// Generate Password Reset Token
+userSchema.methods.getResetPasswordToken = function () {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 min expiry
+  return resetToken;
 };
 
 export const User = mongoose.model("User", userSchema);

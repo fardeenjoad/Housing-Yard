@@ -1,10 +1,11 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { User } from "../models/User.js";
 import { asyncHandler } from "../middlewares/asyncHandler.js";
-import { errorHandler } from "../middlewares/errorHandler.js";
 import { generateOtp, otpExpiryAfter, isOtpExpired } from "../utils/otp.js";
 import { sendOtp } from "../utils/twilio.js";
-import { signToken } from "../utils/jwt.js";
+import { sendEmail } from "../utils/sendEmail.js";
+import { signResetToken, signToken } from "../utils/jwt.js";
 
 /**
  * STEP 1: name, mobile, role -> send OTP
@@ -217,14 +218,13 @@ export const verifyLoginOtp = asyncHandler(async (req, res) => {
  * RESEND OTP (for signup or login)
  */
 export const resendOtp = asyncHandler(async (req, res) => {
-  const { mobile, context = "signup" } = req.body; // context can be 'signup' or 'login'
+  const { mobile, context = "signup" } = req.body;
   if (!mobile)
     return res.status(400).json({ message: "mobile number is required" });
 
   const user = await User.findOne({ mobile });
   if (!user) return res.status(404).json({ message: "User not found" });
 
-  // SIGNUP CONTEXT
   if (context === "signup") {
     if (user.isVerified) {
       return res
@@ -233,14 +233,12 @@ export const resendOtp = asyncHandler(async (req, res) => {
     }
   }
 
-  // LOGIN CONTEXT
   if (context === "login") {
     if (!user.isVerified) {
       return res.status(400).json({ message: "User not registered yet." });
     }
   }
 
-  // OTP cooldown
   if (user.otpExpiry && user.otpExpiry > Date.now() - 30 * 1000) {
     return res.status(400).json({ message: "Please wait for 30 seconds" });
   }
@@ -253,15 +251,76 @@ export const resendOtp = asyncHandler(async (req, res) => {
   await sendOtp(mobile, otp);
 
   return res.status(200).json({
-    message: `OTP resent for ${context}`,
+    message: OTP`resent for ${context}`,
     userId: user._id,
   });
 });
 
-// temporary delete api
+/**
+ * FORGOT PASSWORD (JWT-based)
+ */
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: "Email is required" });
+
+  const user = await User.findOne({ email });
+  if (!user) return res.status(404).json({ message: "User not found" });
+
+  const resetToken = signResetToken({ id: user._id, email: user.email });
+
+  const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+  const html = `
+    <h3>Password Reset Request</h3>
+    <p>You requested a password reset.</p>
+    <p>Click the link below to reset your password (valid for ${
+      process.env.RESET_JWT_EXPIRES || "10m"
+    }):</p>
+    <a href="${resetUrl}" target="_blank">${resetUrl}</a>
+  `;
+
+  await sendEmail({
+    to: user.email,
+    subject: "Password Reset Request",
+    text: `Reset your password here: ${resetUrl}`,
+    html,
+  });
+
+  return res
+    .status(200)
+    .json({ message: "Password reset link sent to your email" });
+});
+
+/**
+ * CHANGE PASSWORD
+ */
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword, confirmNewPassword } = req.body;
+
+  if (!currentPassword || !newPassword || !confirmNewPassword)
+    return res.status(400).json({ message: "All fields are required" });
+
+  if (newPassword !== confirmNewPassword)
+    return res.status(400).json({ message: "New Passwords do not match" });
+
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ message: "User not found" });
+
+  const isMatch = await user.comparePassword(currentPassword);
+  if (!isMatch)
+    return res.status(401).json({ message: "Current Password is incorret" });
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  await user.save();
+
+  return res.status(200).json({ message: "Password changed successfully" });
+});
+
+/**
+ * TEMP DELETE
+ */
 export const deleteUser = asyncHandler(async (req, res) => {
   const { mobile } = req.body;
-
   if (!mobile) {
     return res.status(400).json({ message: "Mobile number is required" });
   }

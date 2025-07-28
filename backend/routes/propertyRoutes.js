@@ -1,5 +1,5 @@
 import express from "express";
-import { protect, checkRole, checkPermission } from "../middlewares/auth.js";
+import { protect, checkRole, checkPermission, optionalAuth } from "../middlewares/auth.js";
 import {
   createProperty,
   listPublicProperties,
@@ -10,13 +10,13 @@ import {
   holdProperty,
   resumeProperty,
   changeStatus,
-} from "../controllers/admin&propertyController.js";
+} from "../controllers/propertyController.js";
 
 const router = express.Router();
 
 /** PUBLIC ROUTES */
 router.get("/public", listPublicProperties);
-router.get("/:id", getPropertyById);
+router.get("/:id", optionalAuth, getPropertyById);
 
 /** AUTHENTICATED ROUTES */
 router.get("/me/list", protect, checkRole("agent", "admin"), myProperties);
@@ -29,28 +29,28 @@ router.post(
 );
 
 router.put(
-  "/:id",
+  "/properties/:id",
   protect,
   checkPermission("property:update"),
   updateProperty
 );
 
 router.delete(
-  "/:id",
+  "/properties/:id",
   protect,
   checkPermission("property:delete"),
   archiveProperty
 );
 
 router.patch(
-  "/:id/hold",
+  "/properties/:id/hold",
   protect,
   checkPermission("property:hold"),
   holdProperty
 );
 
 router.patch(
-  "/:id/resume",
+  "/properties/:id/resume",
   protect,
   checkPermission("property:hold"),
   resumeProperty

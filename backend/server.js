@@ -5,20 +5,24 @@ import rateLimit from "express-rate-limit";
 import "dotenv/config.js";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
-import adminRoutes from "./routes/admin&propertyRoutes.js";
+import propertyRoutes from "./routes/propertyRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import errorMiddleware from "./middlewares/errorMiddleware.js";
 
 const app = express();
 connectDB();
 
 app.use(
   cors({
-    origin: "http://10.99.194.74:3000",
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(helmet());
+app.use(errorMiddleware)
 
 // (optional) basic rate limit
 app.use(
@@ -27,6 +31,8 @@ app.use(
 );
 
 app.use("/api/auth", authRoutes);
+app.use("/api", propertyRoutes);
+app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
 
 // Global error handler

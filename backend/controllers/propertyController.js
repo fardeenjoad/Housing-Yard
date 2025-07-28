@@ -100,8 +100,14 @@ export const getPropertyById = asyncHandler(async (req, res) => {
   if (!property) return res.status(404).json({ message: "Property not found" });
 
   if (property.status !== "active") {
-    // allow if admin or owner
-    if (!req.user || !ensureOwnerOrAdmin(property, req.user)) {
+    // If property is not active, only admin/owner can view
+    if (!req.user) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to view this property" });
+    }
+
+    if (!ensureOwnerOrAdmin(property, req.user)) {
       return res
         .status(403)
         .json({ message: "Not authorized to view this property" });
@@ -160,11 +166,11 @@ export const updateProperty = asyncHandler(async (req, res) => {
     "status", // NOTE: agent shouldn't be able to set random statuses; we’ll sanitize below
   ];
 
-  updatable.forEach((field) => {
-    if (req.body[field] !== undefined) {
+  for (const field of updatable) {
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, field)) {
       property[field] = req.body[field];
     }
-  });
+  }
 
   // Agent cannot set to active/sold/rejected directly (business rule – optional)
   if (req.user.role !== "admin") {
