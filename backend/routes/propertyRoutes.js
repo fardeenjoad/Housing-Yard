@@ -1,5 +1,11 @@
 import express from "express";
-import { protect, checkRole, checkPermission, optionalAuth } from "../middlewares/auth.js";
+import {
+  protect,
+  checkRole,
+  checkPermission,
+  optionalAuth,
+  isAdmin,
+} from "../middlewares/auth.js";
 import {
   createProperty,
   listPublicProperties,
@@ -10,17 +16,22 @@ import {
   holdProperty,
   resumeProperty,
   changeStatus,
+  getAllProperties,
 } from "../controllers/propertyController.js";
 
 const router = express.Router();
 
 /** PUBLIC ROUTES */
 router.get("/public", listPublicProperties);
+
+//  STATIC first
+router.get("/me/list", protect, checkRole("agent", "admin"), myProperties);
+router.get("/admin", protect, isAdmin, getAllProperties);
+
+/** SINGLE PROPERTY ROUTE SHOULD BE LAST */
 router.get("/:id", optionalAuth, getPropertyById);
 
-/** AUTHENTICATED ROUTES */
-router.get("/me/list", protect, checkRole("agent", "admin"), myProperties);
-
+/** CRUD ROUTES */
 router.post(
   "/properties",
   protect,
@@ -56,12 +67,6 @@ router.patch(
   resumeProperty
 );
 
-/** ADMIN ONLY */
-router.patch(
-  "/:id/status",
-  protect,
-  checkRole("admin"),
-  changeStatus
-);
+router.patch("/:id/status", protect, checkRole("admin"), changeStatus);
 
 export default router;

@@ -3,7 +3,8 @@ import {
   getUserProfile,
   updateUserProfile,
 } from "../controllers/userController.js";
-import { protect } from "../middlewares/auth.js";
+import { isAdmin, protect } from "../middlewares/auth.js";
+import { getAllUsers } from "../controllers/adminController.js";
 
 const router = express.Router();
 

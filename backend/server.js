@@ -31,7 +31,7 @@ app.use(
 );
 
 app.use("/api/auth", authRoutes);
-app.use("/api", propertyRoutes);
+app.use("/api/properties", propertyRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
 

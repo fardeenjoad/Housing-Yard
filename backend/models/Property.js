@@ -18,10 +18,11 @@ const propertySchema = new mongoose.Schema(
     price: { type: Number, required: true, min: 0 },
     location: {
       address: { type: String, required: true },
-      city: String,
-      state: String,
-      country: String,
-      pincode: String,
+      city: { type: String },
+      area:{type:String},
+      state: { type: String },
+      country: { type: String },
+      pincode: { type: String },
       coordinates: {
         type: { type: String, enum: ["Point"], default: "Point" },
         coordinates: { type: [Number], default: [0, 0] },

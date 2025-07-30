@@ -6,9 +6,26 @@ import ErrorHandler from "../utils/ErrorHandler.js";
 //@route GET /api/admin/users
 //@access Private
 export const getAllUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select("-password");
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+
+  const skip = (page - 1) * limit;
+  const totalUsers = await User.countDocuments();
+
+  const users = await User.find()
+    .skip(skip)
+    .limit(limit)
+    .select("-password")
+    .sort({ createdAt: -1 });
+
   res.status(200).json({
     success: true,
+    count: users.length,
+    totalUsers,
+    totalPages: Math.ceil(totalUsers / limit),
+    currentPage: page,
+    hasNextPage: page * limit < totalUsers,
+    hasPrevPage: page > 1,
     users,
   });
 });

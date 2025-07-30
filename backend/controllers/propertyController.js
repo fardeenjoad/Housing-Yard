@@ -2,6 +2,7 @@ import { Property, PROPERTY_STATUS } from "../models/Property.js";
 import { User } from "../models/User.js";
 import { asyncHandler } from "../middlewares/asyncHandler.js";
 import { buildPagination, buildSort } from "../utils/pagination.js";
+import { ApiFeatures } from "../utils/apiFeatures.js";
 
 const ensureOwnerOrAdmin = (property, user) => {
   if (user.role === "admin") return true;
@@ -55,36 +56,65 @@ export const createProperty = asyncHandler(async (req, res) => {
   });
 });
 
-/**
- * GET /api/properties/public
- * Public: list only active properties with filters
- */
+// @desc    Get all properties (admin only)
+// @route   GET /api/v1/properties
+// @access  Private/Admin
+export const getAllProperties = async (req, res, next) => {
+  try {
+    let baseQuery = Property.find();
+
+    const features = new ApiFeatures(baseQuery, req.query)
+      .search("location.city")
+      .filter()
+      .sort()
+      .paginate();
+
+      console.log("Final query filter =>", features.query.getFilter());
+      
+    // Clone after ALL chaining for consistent result
+    const properties = await features.query.clone();
+
+    // Clone again for total count after all filters only (not pagination)
+    const totalQuery = new ApiFeatures(Property.find(), req.query)
+      .search("title")
+      .filter();
+    const total = await totalQuery.query.countDocuments();
+
+    res.status(200).json({
+      success: true,
+      total, // after filters
+      count: properties.length, // items on current page
+      page: features.page,
+      limit: features.limit,
+      data: properties,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// LIST PUBLIC PROPERTIES — For Users (Only active ones)
 export const listPublicProperties = asyncHandler(async (req, res) => {
-  const { q, minPrice, maxPrice, city } = req.query;
-  const { page, limit, skip } = buildPagination(req);
-  const sort = buildSort(req, "-createdAt");
+  const total = await Property.countDocuments({ status: "active" });
 
-  const filter = { status: "active" };
+  const features = new ApiFeatures(
+    Property.find({ status: "active" }),
+    req.query
+  )
+    .search("title")
+    .filter()
+    .sort()
+    .paginate();
 
-  if (q) filter.title = { $regex: q, $options: "i" };
-  if (minPrice) filter.price = { ...filter.price, $gte: Number(minPrice) };
-  if (maxPrice) filter.price = { ...filter.price, $lte: Number(maxPrice) };
-  if (city) filter["location.city"] = city;
+  const properties = await features.query.lean();
 
-  const [items, total] = await Promise.all([
-    Property.find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .populate("createdBy", "name role"),
-    Property.countDocuments(filter),
-  ]);
-
-  return res.status(200).json({
-    page,
-    limit,
+  res.status(200).json({
+    success: true,
     total,
-    items,
+    count: properties.length,
+    page: features.page,
+    limit: features.limit,
+    data: properties,
   });
 });
 
