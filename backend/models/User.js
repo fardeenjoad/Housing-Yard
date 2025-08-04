@@ -26,6 +26,8 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+//lat long & ip address
+
 // Password compare method
 userSchema.methods.comparePassword = async function (plain) {
   return bcrypt.compare(plain, this.password || " ");

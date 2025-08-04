@@ -8,7 +8,10 @@ import authRoutes from "./routes/authRoutes.js";
 import propertyRoutes from "./routes/propertyRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
+import searchRoutes from "./routes/searchRoutes.js";
 import errorMiddleware from "./middlewares/errorMiddleware.js";
+import { globalLimiter } from "./middlewares/rateLimiter.js";
 
 const app = express();
 connectDB();
@@ -21,8 +24,10 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
-app.use(errorMiddleware)
+app.use(errorMiddleware);
+app.use(globalLimiter);
 
 // (optional) basic rate limit
 app.use(
@@ -34,6 +39,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/properties", propertyRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/report", reportRoutes);
+app.use("/api/search", searchRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
